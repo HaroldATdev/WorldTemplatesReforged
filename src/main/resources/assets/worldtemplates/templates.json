@@ -1,0 +1,10 @@
+{
+  "templates": [
+    {
+      "buttonText": "Trilcera",
+      "icon": "worldtemplates:textures/gui/default_template.png",
+      "templateLocation": "trilcera-template",
+      "folderName": "trilcera-template"
+    }
+  ]
+}
