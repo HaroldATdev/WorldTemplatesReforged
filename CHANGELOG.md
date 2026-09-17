@@ -75,4 +75,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   saved to `config/worldtemplates-client.toml`.
 
 [1.0.1]: https://github.com/HaroldATdev/WorldTemplatesReforged/releases/tag/v1.0.1
-[1.0.0]: https://github.com/HaroldATdev/WorldTemplatesReforged/releases/tag/v1.0.0
