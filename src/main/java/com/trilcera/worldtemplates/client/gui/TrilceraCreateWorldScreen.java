@@ -175,6 +175,6 @@ private void launch() {
         }
         this.closing = true;
         // Back to where the player came from (selector or world list).
-        ClientEvents.returnToWorldList(this.parent);
+        ClientEvents.backToParent(this.parent);
     }
 }

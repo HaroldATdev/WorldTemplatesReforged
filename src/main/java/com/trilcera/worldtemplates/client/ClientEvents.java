@@ -44,30 +44,28 @@ public class ClientEvents {
     }
 
     /**
-     * Returns to the world list without re-running SelectWorldScreen.init():
-     * initializing it triggers a full datapack reload via managedBlock
-     * ("Preparing world generation..." for seconds on big modpacks) during
-     * which queued input replays land on the rebuilt screen.
+     * Opens a fresh world list. Reusing a removed SelectWorldScreen instance
+     * is NOT safe: setScreen() already closed its world favicons, and removing
+     * it again crashes with "Icon already closed" (WorldSelectionList entries).
+     * Note: SelectWorldScreen.init() runs a full datapack reload via
+     * managedBlock (seconds on big modpacks) while queued input replays
+     * (Ixeris) pile up - they fire right after init() returns, so the
+     * suppression window must start AFTER setScreen(), never before.
      */
-    public static void returnToWorldList(Screen parent) {
+    public static void returnToWorldList() {
         Minecraft mc = Minecraft.getInstance();
-        if (parent instanceof SelectWorldScreen select) {
-            Screen current = mc.screen;
-            if (current != null) {
-                current.removed();
-            }
-            suppressCreateClicks(1200);
-            mc.screen = select;
-            return;
-        }
-        if (parent instanceof WorldTemplateScreen || parent instanceof TrilceraCreateWorldScreen) {
-            // Our own screens re-init instantly.
-            suppressCreateClicks(1200);
-            mc.setScreen(parent);
-            return;
-        }
-        suppressCreateClicks(1200);
         mc.setScreen(new SelectWorldScreen(new TitleScreen()));
+        suppressCreateClicks(1200);
+    }
+
+    /** Back to the parent: instant for our own screens, fresh world list otherwise. */
+    public static void backToParent(Screen parent) {
+        if (parent instanceof WorldTemplateScreen || parent instanceof TrilceraCreateWorldScreen) {
+            suppressCreateClicks(1200);
+            Minecraft.getInstance().setScreen(parent);
+            return;
+        }
+        returnToWorldList();
     }
 
     @SubscribeEvent
@@ -128,16 +126,28 @@ public class ClientEvents {
     public static void onScreenOpening(ScreenEvent.Opening event) {
         ensureTemplateInstalled();
 
-        // LonKraft parity: redirect CreateWorldScreen when vanilla is disabled
+        // LonKraft parity: redirect CreateWorldScreen when vanilla is disabled.
+        // ONLY for user-facing opens: vanilla ALSO opens CreateWorldScreen
+        // internally (padre=GenericDirtMessageScreen) while the world list
+        // processes existing worlds - intercepting that hijacked the flow and
+        // kept re-opening the template selector even with chooseTemplate=NO.
         if (event.getScreen() instanceof CreateWorldScreen
                 && !Config.INSTANCE.allowVanillaWorldCreation.get()
                 && !(event.getCurrentScreen() instanceof TrilceraCreateWorldScreen)
                 && !(event.getCurrentScreen() instanceof WorldTemplateScreen)) {
             Screen current = event.getCurrentScreen();
-            Screen fallback = current != null ? current : Minecraft.getInstance().screen;
+            boolean userFacing = current instanceof SelectWorldScreen
+                    || current instanceof WorldTemplateScreen
+                    || current instanceof TrilceraCreateWorldScreen
+                    || current instanceof TrilceraErrorScreen;
+            if (!userFacing) {
+                LOGGER.info("[WTR] CreateWorldScreen interno ignorado (padre={})",
+                        current != null ? current.getClass().getSimpleName() : "null");
+                return;
+            }
             LOGGER.info("[WTR] CreateWorldScreen interceptado -> flujo propio (padre={})",
-                    fallback != null ? fallback.getClass().getSimpleName() : "null");
-            event.setNewScreen(new WorldTemplateScreen(fallback));
+                    current.getClass().getSimpleName());
+            event.setNewScreen(new WorldTemplateScreen(current));
         }
     }
 

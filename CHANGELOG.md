@@ -5,6 +5,25 @@ All notable changes to **World Templates Reforged** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-09-18
+### Fixed
+- **Crash** (`Icon already closed`) when creating a world while another world
+  existed: reusing a removed `SelectWorldScreen` instance (direct field swap)
+  left it with closed favicons; `setScreen()` later removed it a second time.
+  Removed instances are never reused now - a fresh world list is always
+  created.
+- **Template selector kept appearing even with `chooseTemplate = NO`**: vanilla
+  opens `CreateWorldScreen` internally (parent = `GenericDirtMessageScreen`)
+  while the world list processes existing worlds, and the redirect hijacked
+  that internal open. The redirect now only applies to user-facing parents
+  (world list or our own screens).
+- **Replayed clicks after the datapack reload**: the suppression window started
+  *before* the screen switch, but `SelectWorldScreen.init()` blocks for seconds
+  (managedBlock reload), so the window had expired by the time replays fired.
+  Suppression now starts *after* the switch completes.
+### Added
+- `[WTR] CreateWorldScreen interno ignorado` log line for internal vanilla opens.
+
 ## [1.0.3] - 2026-09-18
 ### Fixed
 - Cancel no longer loops back into the template selector. Root cause: input

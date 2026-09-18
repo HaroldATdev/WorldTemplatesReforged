@@ -125,10 +125,9 @@ public class WorldTemplateScreen extends Screen {
 
     /**
      * Cancel: back to the world list via {@link ClientEvents#returnToWorldList}.
-     * The parent world list is swapped in WITHOUT re-running init(), because
-     * SelectWorldScreen.init() runs a full datapack reload via managedBlock
-     * (seconds on big modpacks) during which queued input replays (Ixeris)
-     * land on whatever button now occupies the old Cancel coordinates.
+     * A fresh SelectWorldScreen is used (reusing removed instances crashes
+     * with "Icon already closed"); the input-replay suppression starts AFTER
+     * the switch, so queued replays (Ixeris) can not re-open this screen.
      */
     @Override
     public void onClose() {
@@ -136,7 +135,7 @@ public class WorldTemplateScreen extends Screen {
             return;
         }
         this.closing = true;
-        ClientEvents.returnToWorldList(this.parent);
+        ClientEvents.backToParent(this.parent);
     }
 
     public void setSelected(WorldTemplate template) {

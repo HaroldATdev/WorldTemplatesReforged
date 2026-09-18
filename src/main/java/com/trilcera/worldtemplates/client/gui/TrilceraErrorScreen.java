@@ -52,7 +52,7 @@ public class TrilceraErrorScreen extends Screen {
             i++;
         }
         this.addRenderableWidget(Button.builder(Component.literal("Lista de mundos"),
-                        b -> ClientEvents.returnToWorldList(this.parent))
+                        b -> ClientEvents.returnToWorldList())
                 .bounds(startX + i * (bw + gap), y, bw, 20).build());
         i++;
         this.addRenderableWidget(Button.builder(Component.literal("Menu principal"),
@@ -97,6 +97,6 @@ public class TrilceraErrorScreen extends Screen {
 
     @Override
     public void onClose() {
-        ClientEvents.returnToWorldList(this.parent);
+        ClientEvents.backToParent(this.parent);
     }
 }
