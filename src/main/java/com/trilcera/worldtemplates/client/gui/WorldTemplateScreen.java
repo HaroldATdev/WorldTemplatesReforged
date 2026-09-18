@@ -34,6 +34,34 @@ public class WorldTemplateScreen extends Screen {
     private static final Component CREATE_LABEL = Component.literal("Crear Mundo");
     private static final Component CANCEL_LABEL = Component.literal("Cancelar");
 
+    /*
+     * Vertical rhythm of the header, top -> bottom:
+     *   title (y = 15)  ->  selected template name  ->  "Orden" button  ->  list
+     * Every step leaves room for a 9 px font line / an 18 px button plus a gap,
+     * so the header never overlaps itself at any GUI scale.
+     */
+    /** Y of the screen title. */
+    private static final int HEADER_TOP = 15;
+    /** Distance from the title baseline row to the selected-template name row. */
+    private static final int SELECTED_NAME_OFFSET = 17;
+    /** Distance from the selected-template name row to the top of the button. */
+    private static final int SORT_BUTTON_OFFSET = 18;
+    private static final int SORT_BUTTON_WIDTH = 120;
+    private static final int SORT_BUTTON_HEIGHT = 18;
+    /** Gap between the "Orden" button and the top of the template list. */
+    private static final int LIST_GAP = 6;
+    /** Space kept below the list for the create/cancel row. */
+    private static final int LIST_BOTTOM_MARGIN = 80;
+    private static final int LIST_ROW_HEIGHT = 40;
+
+    // Layout resolved by computeLayout(); the render pass reuses it so the
+    // drawn text and the widgets always agree.
+    private int titleY = HEADER_TOP;
+    private int selectedNameY = HEADER_TOP + SELECTED_NAME_OFFSET;
+    private int sortButtonY = HEADER_TOP + SELECTED_NAME_OFFSET + SORT_BUTTON_OFFSET;
+    private int listTop = HEADER_TOP + SELECTED_NAME_OFFSET + SORT_BUTTON_OFFSET
+            + SORT_BUTTON_HEIGHT + LIST_GAP;
+
     public WorldTemplateScreen(Screen parent) {
         super(Component.literal("Seleccionar Plantilla"));
         this.parent = parent;
@@ -45,6 +73,7 @@ public class WorldTemplateScreen extends Screen {
         // into it: a stale 'closing' flag makes every button ignore its click.
         this.closing = false;
         this.selectedTemplate = null;
+        computeLayout();
         rebuildList();
 
         // Create button
@@ -73,9 +102,23 @@ public class WorldTemplateScreen extends Screen {
                         this.sortButton.setMessage(sortLabel());
                     }
                 })
-                .bounds(centerX - 60, 42, 120, 18)
+                .bounds(centerX - (SORT_BUTTON_WIDTH / 2), this.sortButtonY,
+                        SORT_BUTTON_WIDTH, SORT_BUTTON_HEIGHT)
                 .build();
         this.addRenderableWidget(this.sortButton);
+    }
+
+    /**
+     * Resolves the header/list geometry for the current window size.
+     * The header is anchored to the top and the list gets whatever space is left
+     * above the create/cancel row. Minecraft clamps the scaled window to
+     * 320x240, so the 74 px header always leaves room for a couple of rows.
+     */
+    private void computeLayout() {
+        this.titleY = HEADER_TOP;
+        this.selectedNameY = this.titleY + SELECTED_NAME_OFFSET;
+        this.sortButtonY = this.selectedNameY + SORT_BUTTON_OFFSET;
+        this.listTop = this.sortButtonY + SORT_BUTTON_HEIGHT + LIST_GAP;
     }
 
     private void rebuildList() {
@@ -85,9 +128,9 @@ public class WorldTemplateScreen extends Screen {
             this.removeWidget(this.templateList);
         }
         List<WorldTemplate> templates = TemplateSorting.sort(WorldTemplateManager.getTemplates());
-        int listTop = 66;
-        int listBottom = this.height - 80;
-        this.templateList = new TemplateList(this.minecraft, this.width, this.height, listTop, listBottom, 40);
+        int listTop = this.listTop;
+        int listBottom = this.height - LIST_BOTTOM_MARGIN;
+        this.templateList = new TemplateList(this.minecraft, this.width, this.height, listTop, listBottom, LIST_ROW_HEIGHT);
         for (WorldTemplate template : templates) {
             this.templateList.addTemplateEntry(new TemplateEntry(template));
         }
@@ -118,12 +161,14 @@ public class WorldTemplateScreen extends Screen {
         this.renderBackground(graphics);
         this.templateList.render(graphics, mouseX, mouseY, partialTick);
 
-        // Draw title
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 20, 0xFFFFFF);
+        // Draw title, then the selected template name below it. The "Orden"
+        // button is drawn afterwards by super.render() and sits a further 18 px
+        // down, so it never covers either text.
+        graphics.drawCenteredString(this.font, this.title, this.width / 2, this.titleY, 0xFFFFFF);
 
         // Draw selected template info if config allows
         if (selectedTemplate != null && Config.INSTANCE.showTemplateDescriptions.get()) {
-            graphics.drawCenteredString(this.font, selectedTemplate.buttonMessage(), this.width / 2, 40, 0xAAAAAA);
+            graphics.drawCenteredString(this.font, selectedTemplate.buttonMessage(), this.width / 2, this.selectedNameY, 0xAAAAAA);
         }
 
         super.render(graphics, mouseX, mouseY, partialTick);

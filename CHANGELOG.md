@@ -5,7 +5,18 @@ All notable changes to **World Templates Reforged** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.7] - 2026-09-18
+## [1.0.8] - 2026-09-18
+### Fixed
+- **Selector header no longer overlaps itself.** The `Orden` button was drawn at
+  `y = 42`, right on top of the selected template name drawn at `y = 40`, so the
+  button covered the name. The header now has an explicit vertical rhythm —
+  title (`15`) → selected template name (`32`) → `Orden` button (`50..68`) →
+  list (`74`) — and the geometry is resolved once in `computeLayout()`, so the
+  drawn text and the widgets always agree at any GUI scale and after a resize.
+### Added
+- **Mod logo.** `logoFile` now points at the bundled `worldtemplates_logo.png`,
+  so the mod shows an icon in the in-game mod list instead of a placeholder.
+
 ### Fixed
 - **Dead buttons after Back from the create screen**: Back returned to the
   *same* template selector instance it came from. That instance was already
