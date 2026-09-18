@@ -30,10 +30,14 @@ public class TrilceraCreateWorldScreen extends Screen {
     private Component status;
     private boolean working;
     private TemplateGameMode gameMode;
+    private final Screen parent;
+    private boolean closing;
+    private String lastCreatedWorld;
 
-    public TrilceraCreateWorldScreen(WorldTemplate template) {
+    public TrilceraCreateWorldScreen(WorldTemplate template, Screen parent) {
         super(Component.literal("Crear Trilcera"));
         this.template = template;
+        this.parent = parent;
         this.gameMode = parseDefaultGameMode(Config.INSTANCE.defaultGameMode.get());
         this.status = Component.literal("Listo para crear tu mundo Trilcera.");
     }
@@ -83,6 +87,7 @@ private void launch() {
                         mc.gameDirectory.toPath(),
                         Config.INSTANCE.worldBaseName.get(),
                         mode);
+                lastCreatedWorld = worldName;
                 mc.execute(() -> {
                     status = Component.literal("Abriendo '" + worldName + "'...");
                     openWorldByName(worldName);
@@ -90,7 +95,10 @@ private void launch() {
             } catch (Exception e) {
                 LOGGER.error("[Trilcera Templates] Failed to create world", e);
                 String reason = describe(e);
-                mc.execute(() -> showError(reason));
+                mc.execute(() -> {
+                    working = false;
+                    showError(reason);
+                });
             }
         }, "Trilcera-World-Create").start();
     }
@@ -126,17 +134,21 @@ private void launch() {
             mc.createWorldOpenFlows().loadLevel(new SelectWorldScreen(new TitleScreen()), worldName);
         } catch (Exception e) {
             LOGGER.error("[Trilcera Templates] Failed to open created world", e);
-            mc.execute(() -> showError(
-                    "El mundo '" + worldName + "' se creo, pero no se pudo abrir: "
-                            + (e.getMessage() != null ? e.getMessage() : e.toString())));
+            mc.execute(() -> {
+                working = false;
+                showError("El mundo '" + worldName + "' se creo, pero no se pudo abrir: "
+                        + (e.getMessage() != null ? e.getMessage() : e.toString()));
+            });
         }
     }
 
     private void showError(String reason) {
-        TrilceraErrorScreen err = new TrilceraErrorScreen(new SelectWorldScreen(new TitleScreen()),
-                reason, this::launch);
-        err.init(this.minecraft, this.width, this.height);
-        this.minecraft.setScreen(err);
+        Runnable retry = lastCreatedWorld != null
+                ? () -> openWorldByName(lastCreatedWorld)
+                : this::launch;
+        // setScreen() runs init() itself; never call init() manually.
+        this.minecraft.setScreen(new TrilceraErrorScreen(
+                new SelectWorldScreen(new TitleScreen()), reason, retry));
     }
 
     @Override
@@ -153,8 +165,16 @@ private void launch() {
 
     @Override
     public void onClose() {
-        if (this.minecraft != null) {
-            this.minecraft.setScreen(new SelectWorldScreen(new TitleScreen()));
+        if (this.closing) {
+            return;
+        }
+        this.closing = true;
+        Minecraft mc = this.minecraft != null ? this.minecraft : Minecraft.getInstance();
+        // Back to where the player came from (selector or world list).
+        if (this.parent != null) {
+            mc.setScreen(this.parent);
+        } else {
+            mc.setScreen(new SelectWorldScreen(new TitleScreen()));
         }
     }
 }

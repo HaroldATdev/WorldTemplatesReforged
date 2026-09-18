@@ -5,6 +5,22 @@ All notable changes to **World Templates Reforged** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-09-17
+### Fixed
+- Cancel in the template selector now reliably returns to the world list:
+  the screen switch is direct (no deferred `mc.execute`), removing the
+  re-entry window that input-replay mods (Ixeris/FancyMenu) exploited.
+- "Back" on the create-world screen returns to where you came from
+  (template selector or world list) instead of the main menu.
+- Error screen: re-added the "World list" button (buttons were
+  off-center) and Esc/back now returns to its parent screen.
+- Error screen "Retry" no longer gets stuck: the busy flag is reset on
+  failure and, if the world was already created, retry re-opens it
+  instead of cloning another copy.
+### Changed
+- All template screens now keep a real parent reference instead of
+  relying on stale captured screens.
+
 ## [1.0.1] - 2026-09-11
 
 ### Added

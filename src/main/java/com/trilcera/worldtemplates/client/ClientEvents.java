@@ -98,7 +98,7 @@ public class ClientEvents {
                 && !(event.getCurrentScreen() instanceof WorldTemplateScreen)) {
             Screen current = event.getCurrentScreen();
             Screen fallback = current != null ? current : Minecraft.getInstance().screen;
-            event.setNewScreen(new WorldTemplateScreen());
+            event.setNewScreen(new WorldTemplateScreen(fallback));
         }
     }
 
@@ -116,8 +116,8 @@ public class ClientEvents {
 
         if (choose) {
             LOGGER.info("[WTR] Boton: escogerPlantilla=SI, orden={}, abriendo selector", sort);
-            mc.setScreen(new WorldTemplateScreen());
-            return;
+            mc.setScreen(new WorldTemplateScreen(parent));
+            return; // X1
         }
 
         List<WorldTemplate> sorted = TemplateSorting.sort(WorldTemplateManager.getTemplates());
@@ -141,7 +141,7 @@ public class ClientEvents {
             mc.setScreen(new TrilceraErrorScreen(parent, preflightError));
             return;
         }
-        mc.setScreen(new TrilceraCreateWorldScreen(first));
+        mc.setScreen(new TrilceraCreateWorldScreen(first, parent));
     }
 
     /** Returns an error message if the template is not usable, else null. */

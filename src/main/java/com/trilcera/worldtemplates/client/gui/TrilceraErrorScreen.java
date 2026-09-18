@@ -96,8 +96,11 @@ public class TrilceraErrorScreen extends Screen {
 
     @Override
     public void onClose() {
-        if (this.minecraft != null && this.parent != null) {
-            this.minecraft.setScreen(this.parent);
+        Minecraft mc = this.minecraft != null ? this.minecraft : Minecraft.getInstance();
+        if (this.parent != null) {
+            mc.setScreen(this.parent);
+        } else {
+            mc.setScreen(new SelectWorldScreen(new TitleScreen()));
         }
     }
 }

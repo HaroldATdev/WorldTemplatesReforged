@@ -12,7 +12,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 import net.minecraft.network.chat.Component;
-
 import java.util.List;
 
 /**
@@ -27,12 +26,15 @@ public class WorldTemplateScreen extends Screen {
     private Button cancelButton;
     private Button sortButton;
     private WorldTemplate selectedTemplate;
+    private boolean closing;
+    private final Screen parent;
 
     private static final Component CREATE_LABEL = Component.literal("Crear Mundo");
     private static final Component CANCEL_LABEL = Component.literal("Cancelar");
 
-    public WorldTemplateScreen() {
+    public WorldTemplateScreen(Screen parent) {
         super(Component.literal("Seleccionar Plantilla"));
+        this.parent = parent;
     }
 
     @Override
@@ -69,6 +71,11 @@ public class WorldTemplateScreen extends Screen {
     }
 
     private void rebuildList() {
+        // Drop the previous list first: the "Orden" button rebuilds on every
+        // click and stacking lists would render and hit-test duplicates.
+        if (this.templateList != null) {
+            this.removeWidget(this.templateList);
+        }
         List<WorldTemplate> templates = TemplateSorting.sort(WorldTemplateManager.getTemplates());
         int listTop = 66;
         int listBottom = this.height - 80;
@@ -84,10 +91,13 @@ public class WorldTemplateScreen extends Screen {
     }
 
     private void onCreate(Button button) {
-        if (selectedTemplate != null) {
-            Minecraft.getInstance().setScreen(
-                    new TrilceraCreateWorldScreen(selectedTemplate));
+        if (this.closing || selectedTemplate == null) {
+            return;
         }
+        this.closing = true;
+        WorldTemplate template = selectedTemplate;
+        Minecraft mc = Minecraft.getInstance();
+        mc.setScreen(new TrilceraCreateWorldScreen(template, this));
     }
 
     @Override
@@ -106,11 +116,26 @@ public class WorldTemplateScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 
+    /**
+     * Cancel: back to the world list, per vanilla navigation (Esc from there
+     * goes to the main menu). The switch is <b>direct</b> - no {@code mc.execute}:
+     * deferred switches were the root cause of the old cancel recursion crash,
+     * because input mods (Ixeris, FancyMenu, ...) replay the queued click on the
+     * next frame and re-entered this method. The {@code closing} guard only
+     * protects against that replayed double-dispatch.
+     */
     @Override
     public void onClose() {
-        // Fresh SelectWorldScreen: always works regardless of stale parents.
-        if (this.minecraft != null) {
-            this.minecraft.setScreen(new SelectWorldScreen(new TitleScreen()));
+        if (this.closing) {
+            return;
+        }
+        this.closing = true;
+        Minecraft mc = this.minecraft != null ? this.minecraft : Minecraft.getInstance();
+        // Return to the world list we came from when possible, else a fresh one.
+        if (this.parent instanceof SelectWorldScreen) {
+            mc.setScreen(this.parent);
+        } else {
+            mc.setScreen(new SelectWorldScreen(new TitleScreen()));
         }
     }
 
