@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Mod logo.** `logoFile` now points at the bundled `worldtemplates_logo.png`,
   so the mod shows an icon in the in-game mod list instead of a placeholder.
 
+## [1.0.7] - 2026-09-18
 ### Fixed
 - **Dead buttons after Back from the create screen**: Back returned to the
   *same* template selector instance it came from. That instance was already
@@ -35,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Create screen layout: the game mode selector sits **directly above** the
   create button and the status line is drawn above it (26 px steps), so the text
   no longer overlaps the mode button.
+
+## [1.0.6] - 2026-09-18
 ### Fixed
 - **Our whole flow was skipped when `saves/` had no worlds.** Vanilla's
   `WorldSelectionList.loadLevels()` calls
