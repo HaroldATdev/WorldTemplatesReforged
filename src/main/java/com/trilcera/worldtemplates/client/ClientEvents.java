@@ -8,6 +8,7 @@ import com.trilcera.worldtemplates.client.gui.WorldTemplateScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
 import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 import net.minecraft.network.chat.Component;
@@ -32,6 +33,42 @@ public class ClientEvents {
 
     private static volatile boolean templateChecked;
     private static final Component VANILLA_CREATE = Component.translatable("selectWorld.create");
+    private static volatile long suppressCreateClicksUntil;
+
+    /** Swallows clicks on the world-list button right after one of our screens
+     * closes: input-replay mods (Ixeris) re-dispatch queued clicks once the
+     * (possibly long) screen switch finishes, and they land on whatever button
+     * now occupies the same coordinates. */
+    public static void suppressCreateClicks(long ms) {
+        suppressCreateClicksUntil = System.currentTimeMillis() + ms;
+    }
+
+    /**
+     * Returns to the world list without re-running SelectWorldScreen.init():
+     * initializing it triggers a full datapack reload via managedBlock
+     * ("Preparing world generation..." for seconds on big modpacks) during
+     * which queued input replays land on the rebuilt screen.
+     */
+    public static void returnToWorldList(Screen parent) {
+        Minecraft mc = Minecraft.getInstance();
+        if (parent instanceof SelectWorldScreen select) {
+            Screen current = mc.screen;
+            if (current != null) {
+                current.removed();
+            }
+            suppressCreateClicks(1200);
+            mc.screen = select;
+            return;
+        }
+        if (parent instanceof WorldTemplateScreen || parent instanceof TrilceraCreateWorldScreen) {
+            // Our own screens re-init instantly.
+            suppressCreateClicks(1200);
+            mc.setScreen(parent);
+            return;
+        }
+        suppressCreateClicks(1200);
+        mc.setScreen(new SelectWorldScreen(new TitleScreen()));
+    }
 
     @SubscribeEvent
     public static void onScreenInit(ScreenEvent.Init.Post event) {
@@ -98,6 +135,8 @@ public class ClientEvents {
                 && !(event.getCurrentScreen() instanceof WorldTemplateScreen)) {
             Screen current = event.getCurrentScreen();
             Screen fallback = current != null ? current : Minecraft.getInstance().screen;
+            LOGGER.info("[WTR] CreateWorldScreen interceptado -> flujo propio (padre={})",
+                    fallback != null ? fallback.getClass().getSimpleName() : "null");
             event.setNewScreen(new WorldTemplateScreen(fallback));
         }
     }
@@ -110,6 +149,16 @@ public class ClientEvents {
      *   Never falls back to the selector screen.
      */
     private static void onCreatePressed(SelectWorldScreen parent) {
+        long now = System.currentTimeMillis();
+        if (now < suppressCreateClicksUntil) {
+            LOGGER.info("[WTR] Click ignorado: replay de entrada tras cerrar pantalla ({} ms restantes)",
+                    suppressCreateClicksUntil - now);
+            return;
+        }
+        if (!ClickGuard.allow("create-press")) {
+            LOGGER.info("[WTR] Click ignorado: rebote (replay de Ixeris)");
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         boolean choose = Config.INSTANCE.chooseTemplate.get();
         String sort = TemplateSorting.current();

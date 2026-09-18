@@ -5,6 +5,26 @@ All notable changes to **World Templates Reforged** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-09-18
+### Fixed
+- Cancel no longer loops back into the template selector. Root cause: input
+  replay mods (Ixeris) re-dispatch queued clicks after the screen switch
+  finishes; the replayed click landed on the injected "Crear" button (which
+  occupies the old Cancel coordinates) and, with `chooseTemplate = true`,
+  re-opened the selector. Clicks arriving right after a screen switch are
+  now swallowed.
+- Cancel is now instant: the parent world list is swapped back in without
+  re-running `SelectWorldScreen.init()`, which triggers a full datapack
+  reload ("Preparing world generation..." for seconds on large modpacks)
+  while the queued input replays pile up.
+- Config toggles ("Escoger", "Descrip", "Mostrar", Orden, Modo, Plantilla)
+  no longer double-toggle from replayed clicks - this silently reverted
+  `chooseTemplate` back to true, which made the selector appear even when
+  set to NO.
+### Added
+- `[WTR]` diagnostic log lines for intercepted vanilla screens and swallowed
+  replayed clicks.
+
 ## [1.0.2] - 2026-09-17
 ### Fixed
 - Cancel in the template selector now reliably returns to the world list:

@@ -1,6 +1,8 @@
 package com.trilcera.worldtemplates.client.gui;
 
 import com.trilcera.worldtemplates.Config;
+import com.trilcera.worldtemplates.client.ClickGuard;
+import com.trilcera.worldtemplates.client.ClientEvents;
 import com.trilcera.worldtemplates.client.TemplateSorting;
 import com.trilcera.worldtemplates.client.WorldTemplate;
 import com.trilcera.worldtemplates.client.WorldTemplateManager;
@@ -61,9 +63,11 @@ public class WorldTemplateScreen extends Screen {
 
         // Live "Orden" button cycling the sorting modes
         this.sortButton = Button.builder(sortLabel(), btn -> {
-                    TemplateSorting.cycleAndSave();
-                    rebuildList();
-                    this.sortButton.setMessage(sortLabel());
+                    if (ClickGuard.allow("wts.sort")) {
+                        TemplateSorting.cycleAndSave();
+                        rebuildList();
+                        this.sortButton.setMessage(sortLabel());
+                    }
                 })
                 .bounds(centerX - 60, 42, 120, 18)
                 .build();
@@ -95,6 +99,9 @@ public class WorldTemplateScreen extends Screen {
             return;
         }
         this.closing = true;
+        if (!ClickGuard.allow("wts.create")) {
+            return;
+        }
         WorldTemplate template = selectedTemplate;
         Minecraft mc = Minecraft.getInstance();
         mc.setScreen(new TrilceraCreateWorldScreen(template, this));
@@ -117,12 +124,11 @@ public class WorldTemplateScreen extends Screen {
     }
 
     /**
-     * Cancel: back to the world list, per vanilla navigation (Esc from there
-     * goes to the main menu). The switch is <b>direct</b> - no {@code mc.execute}:
-     * deferred switches were the root cause of the old cancel recursion crash,
-     * because input mods (Ixeris, FancyMenu, ...) replay the queued click on the
-     * next frame and re-entered this method. The {@code closing} guard only
-     * protects against that replayed double-dispatch.
+     * Cancel: back to the world list via {@link ClientEvents#returnToWorldList}.
+     * The parent world list is swapped in WITHOUT re-running init(), because
+     * SelectWorldScreen.init() runs a full datapack reload via managedBlock
+     * (seconds on big modpacks) during which queued input replays (Ixeris)
+     * land on whatever button now occupies the old Cancel coordinates.
      */
     @Override
     public void onClose() {
@@ -130,13 +136,7 @@ public class WorldTemplateScreen extends Screen {
             return;
         }
         this.closing = true;
-        Minecraft mc = this.minecraft != null ? this.minecraft : Minecraft.getInstance();
-        // Return to the world list we came from when possible, else a fresh one.
-        if (this.parent instanceof SelectWorldScreen) {
-            mc.setScreen(this.parent);
-        } else {
-            mc.setScreen(new SelectWorldScreen(new TitleScreen()));
-        }
+        ClientEvents.returnToWorldList(this.parent);
     }
 
     public void setSelected(WorldTemplate template) {

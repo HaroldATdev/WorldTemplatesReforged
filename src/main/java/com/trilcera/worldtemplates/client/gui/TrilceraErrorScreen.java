@@ -1,5 +1,6 @@
 package com.trilcera.worldtemplates.client.gui;
 
+import com.trilcera.worldtemplates.client.ClientEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -46,12 +47,12 @@ public class TrilceraErrorScreen extends Screen {
         int i = 0;
         if (showRetry) {
             this.addRenderableWidget(Button.builder(Component.literal("Reintentar"),
-                            b -> { if (retryAction != null) retryAction.run(); })
+                            b -> { if (retryAction != null && com.trilcera.worldtemplates.client.ClickGuard.allow("tes.retry")) retryAction.run(); })
                     .bounds(startX + i * (bw + gap), y, bw, 20).build());
             i++;
         }
         this.addRenderableWidget(Button.builder(Component.literal("Lista de mundos"),
-                        b -> Minecraft.getInstance().setScreen(new SelectWorldScreen(new TitleScreen())))
+                        b -> ClientEvents.returnToWorldList(this.parent))
                 .bounds(startX + i * (bw + gap), y, bw, 20).build());
         i++;
         this.addRenderableWidget(Button.builder(Component.literal("Menu principal"),
@@ -96,11 +97,6 @@ public class TrilceraErrorScreen extends Screen {
 
     @Override
     public void onClose() {
-        Minecraft mc = this.minecraft != null ? this.minecraft : Minecraft.getInstance();
-        if (this.parent != null) {
-            mc.setScreen(this.parent);
-        } else {
-            mc.setScreen(new SelectWorldScreen(new TitleScreen()));
-        }
+        ClientEvents.returnToWorldList(this.parent);
     }
 }

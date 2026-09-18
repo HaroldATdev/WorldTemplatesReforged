@@ -1,6 +1,7 @@
 package com.trilcera.worldtemplates.client.gui;
 
 import com.trilcera.worldtemplates.Config;
+import com.trilcera.worldtemplates.client.ClickGuard;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -96,6 +97,9 @@ public class TrilceraConfigScreen extends Screen {
         this.toggleChooseBtn = Button.builder(
                 Component.literal("Escoger: " + (chooseTemplate ? "SI" : "NO")),
                 b -> {
+                    if (!ClickGuard.allow("cfg.choose")) {
+                        return;
+                    }
                     chooseTemplate = !chooseTemplate;
                     b.setMessage(Component.literal("Escoger: " + (chooseTemplate ? "SI" : "NO")));
                 }).bounds(fx, sy + rh, fw, 20).build();
@@ -110,22 +114,32 @@ public class TrilceraConfigScreen extends Screen {
         this.toggleDescriptionsBtn = Button.builder(
                 Component.literal("Desc: " + (showDescriptions ? "SI" : "NO")),
                 b -> {
+                    if (!ClickGuard.allow("cfg.desc")) {
+                        return;
+                    }
                     showDescriptions = !showDescriptions;
                     b.setMessage(Component.literal("Desc: " + (showDescriptions ? "SI" : "NO")));
                 }).bounds(fx, sy + rh * 5, fw, 20).build();
         this.toggleVanillaBtn = Button.builder(
                 Component.literal("Mostrar: " + (allowVanilla ? "SI" : "NO")),
                 b -> {
+                    if (!ClickGuard.allow("cfg.vanilla")) {
+                        return;
+                    }
                     allowVanilla = !allowVanilla;
                     b.setMessage(Component.literal("Mostrar: " + (allowVanilla ? "SI" : "NO")));
                 }).bounds(fx, sy + rh * 6, fw, 20).build();
         this.sortBtn = Button.builder(sortLabel(), b -> {
-                    com.trilcera.worldtemplates.client.TemplateSorting.cycleAndSave();
-                    b.setMessage(sortLabel());
+                    if (ClickGuard.allow("cfg.sort")) {
+                        com.trilcera.worldtemplates.client.TemplateSorting.cycleAndSave();
+                        b.setMessage(sortLabel());
+                    }
                 }).bounds(fx, sy + rh * 7, fw, 20).build();
         this.modeBtn = Button.builder(modeLabel(), b -> {
-                    cycleGameMode();
-                    b.setMessage(modeLabel());
+                    if (ClickGuard.allow("cfg.mode")) {
+                        cycleGameMode();
+                        b.setMessage(modeLabel());
+                    }
                 }).bounds(fx, sy + rh * 8, fw, 20).build();
         Button saveBtn = Button.builder(Component.literal("Guardar"),
                 b -> saveAndClose()).bounds(cx - 105, this.height - 28, 100, 20).build();
@@ -225,6 +239,9 @@ public class TrilceraConfigScreen extends Screen {
 
     /** Select-cycles the default template through the registered templates. */
     private void cycleDefaultTemplate() {
+        if (!ClickGuard.allow("cfg.deftpl")) {
+            return;
+        }
         java.util.List<com.trilcera.worldtemplates.client.WorldTemplate> list =
                 com.trilcera.worldtemplates.client.WorldTemplateManager.getTemplates();
         String current = defaultTemplateField.getValue().trim();

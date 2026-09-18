@@ -2,6 +2,8 @@ package com.trilcera.worldtemplates.client.gui;
 
 import com.mojang.logging.LogUtils;
 import com.trilcera.worldtemplates.Config;
+import com.trilcera.worldtemplates.client.ClickGuard;
+import com.trilcera.worldtemplates.client.ClientEvents;
 import com.trilcera.worldtemplates.client.TemplateGameMode;
 import com.trilcera.worldtemplates.client.WorldTemplate;
 import com.trilcera.worldtemplates.client.WorldTemplateCloner;
@@ -60,6 +62,9 @@ public class TrilceraCreateWorldScreen extends Screen {
     }
 
     private void cycleMode() {
+        if (!ClickGuard.allow("cw.mode")) {
+            return;
+        }
         this.gameMode = this.gameMode.next();
         this.modeButton.setMessage(modeLabel());
     }
@@ -169,12 +174,7 @@ private void launch() {
             return;
         }
         this.closing = true;
-        Minecraft mc = this.minecraft != null ? this.minecraft : Minecraft.getInstance();
         // Back to where the player came from (selector or world list).
-        if (this.parent != null) {
-            mc.setScreen(this.parent);
-        } else {
-            mc.setScreen(new SelectWorldScreen(new TitleScreen()));
-        }
+        ClientEvents.returnToWorldList(this.parent);
     }
 }
