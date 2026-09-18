@@ -41,6 +41,10 @@ public class WorldTemplateScreen extends Screen {
 
     @Override
     protected void init() {
+        // init() runs again on window resize, so no interaction state may leak
+        // into it: a stale 'closing' flag makes every button ignore its click.
+        this.closing = false;
+        this.selectedTemplate = null;
         rebuildList();
 
         // Create button
@@ -98,10 +102,12 @@ public class WorldTemplateScreen extends Screen {
         if (this.closing || selectedTemplate == null) {
             return;
         }
-        this.closing = true;
+        // Replay guard BEFORE setting 'closing': bailing out after the flag was
+        // set left the selector permanently dead (no button reacted any more).
         if (!ClickGuard.allow("wts.create")) {
             return;
         }
+        this.closing = true;
         WorldTemplate template = selectedTemplate;
         Minecraft mc = Minecraft.getInstance();
         mc.setScreen(new TrilceraCreateWorldScreen(template, this));

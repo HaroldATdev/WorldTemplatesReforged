@@ -5,7 +5,25 @@ All notable changes to **World Templates Reforged** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.6] - 2026-09-18
+## [1.0.7] - 2026-09-18
+### Fixed
+- **Dead buttons after Back from the create screen**: Back returned to the
+  *same* template selector instance it came from. That instance was already
+  removed and kept `closing = true`, so both `onCreate` and `onClose` returned
+  immediately (nothing reacted any more) and its widgets were duplicated by the
+  second `init()`. Back now opens a **fresh** selector.
+- **Unresponsive selector when a click was rejected as a replay**: `onCreate`
+  set `closing = true` *before* consulting the replay guard, so a single
+  suppressed click left the screen permanently inert.
+- `closing` is now reset in `init()` on both of our screens, which also covers
+  window resizes (previously a resize could leave the screen unresponsive).
+- The Retry action of the error screen no longer runs on an already replaced
+  create-screen instance; it opens a fresh one (or reopens the world that failed
+  to load).
+### Changed
+- Create screen layout: the game mode selector sits **directly above** the
+  create button and the status line is drawn above it (26 px steps), so the text
+  no longer overlaps the mode button.
 ### Fixed
 - **Our whole flow was skipped when `saves/` had no worlds.** Vanilla's
   `WorldSelectionList.loadLevels()` calls

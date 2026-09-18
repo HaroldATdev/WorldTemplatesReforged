@@ -93,13 +93,23 @@ public class ClientEvents {
         }
     }
 
-    /** Back to the parent: instant for our own screens, fresh world list otherwise. */
+    /**
+     * Back navigation for our own screens.
+     *
+     * A selector parent means "Back returns to the template selector", but a
+     * FRESH instance must be created: the previous one was removed by setScreen()
+     * and keeps {@code closing = true}, so reusing it left every button
+     * unresponsive (both onCreate and onClose bail out on that flag) and its
+     * widgets were duplicated by the second init().
+     */
     public static void backToParent(Screen parent) {
-        if (parent instanceof WorldTemplateScreen || parent instanceof TrilceraCreateWorldScreen) {
+        if (parent instanceof WorldTemplateScreen) {
+            LOGGER.info("[WTR] Volver: selector de plantillas (instancia nueva)");
             suppressCreateClicks(1200);
-            Minecraft.getInstance().setScreen(parent);
+            Minecraft.getInstance().setScreen(new WorldTemplateScreen(null));
             return;
         }
+        LOGGER.info("[WTR] Volver: lista de mundos / menu principal");
         returnToWorldList();
     }
 

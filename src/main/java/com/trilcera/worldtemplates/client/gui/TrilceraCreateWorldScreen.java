@@ -46,19 +46,27 @@ public class TrilceraCreateWorldScreen extends Screen {
 
     @Override
     protected void init() {
+        // init() also runs on window resize: clear any state from a previous
+        // interaction or every button would ignore its click.
+        this.closing = false;
         int cx = this.width / 2;
         int cy = this.height / 2;
+        int bw = 200;
+        int bx = cx - bw / 2;
 
+        // Vertical order (top to bottom): title, template name, status text,
+        // game mode, create, back. The game mode selector sits directly above
+        // the create button with 26 px steps, so nothing overlaps the status.
         this.modeButton = Button.builder(modeLabel(), b -> cycleMode())
-                .bounds(cx - 100, cy - 20, 200, 20).build();
+                .bounds(bx, cy - 22, bw, 20).build();
         this.launchButton = Button.builder(
                         Component.literal("Crear '" + template.buttonMessage().getString() + "'"),
                         b -> launch())
-                .bounds(cx - 100, cy + 20, 200, 20).build();
+                .bounds(bx, cy + 4, bw, 20).build();
         this.addRenderableWidget(this.modeButton);
         this.addRenderableWidget(this.launchButton);
         this.addRenderableWidget(Button.builder(CommonComponents.GUI_BACK, b -> onClose())
-                .bounds(cx - 100, cy + 45, 200, 20).build());
+                .bounds(bx, cy + 30, bw, 20).build());
     }
 
     private void cycleMode() {
@@ -148,11 +156,14 @@ private void launch() {
     }
 
     private void showError(String reason) {
+        Minecraft mc = Minecraft.getInstance();
+        // Retry must never act on this (already replaced) instance: recreate the
+        // create screen, or reopen the world that failed to load.
         Runnable retry = lastCreatedWorld != null
                 ? () -> openWorldByName(lastCreatedWorld)
-                : this::launch;
+                : () -> mc.setScreen(new TrilceraCreateWorldScreen(this.template, null));
         // setScreen() runs init() itself; never call init() manually.
-        this.minecraft.setScreen(new TrilceraErrorScreen(
+        mc.setScreen(new TrilceraErrorScreen(
                 new SelectWorldScreen(new TitleScreen()), reason, retry));
     }
 
@@ -161,11 +172,12 @@ private void launch() {
         this.renderBackground(g);
         super.render(g, mx, my, pt);
         int cy = this.height / 2;
-        g.drawCenteredString(this.font, this.title, this.width / 2, cy - 55, 0xFFFFFF);
+        // Text stack sits above the button stack (buttons: cy-22, cy+4, cy+30).
+        g.drawCenteredString(this.font, this.title, this.width / 2, cy - 72, 0xFFFFFF);
         g.drawCenteredString(this.font, template.buttonMessage(),
-                this.width / 2, cy - 40, 0x55FF55);
+                this.width / 2, cy - 56, 0x55FF55);
         g.drawCenteredString(this.font, status,
-                this.width / 2, cy - 2, 0xAAAAAA);
+                this.width / 2, cy - 40, 0xAAAAAA);
     }
 
     @Override
