@@ -5,6 +5,49 @@ All notable changes to **World Templates Reforged** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2026-09-18
+### Fixed
+- **Our whole flow was skipped when `saves/` had no worlds.** Vanilla's
+  `WorldSelectionList.loadLevels()` calls
+  `CreateWorldScreen.openFresh(minecraft, null)` by itself when no world exists,
+  and the previous "ignore internal opens" rule let that vanilla screen through
+  (its parent is a `GenericDirtMessageScreen`, so it looked internal). The player
+  landed on the vanilla world creation screen instead of the configured flow.
+  That auto-open is now recognized (empty world list) and routed to our own flow.
+- **`chooseTemplate = NO` opened the selector anyway** on that same vanilla
+  auto-open, because the redirect always built a `WorldTemplateScreen`. The
+  world-list button and the intercepted open now share a single entry point that
+  respects the setting and goes straight to the create screen with the first
+  template after the configured sorting.
+- **Data-loss risk removed from the leftover cleanup.** It used to delete any
+  folder named `<base name>` or `<base name> ...` that lacked our marker, which
+  could delete a player's own world sharing that name (for example a world copied
+  from a server). It now removes only our own dot-prefixed staging folders
+  (`.<name>.creating`), which are never worlds.
+### Changed
+- Cancel/Back returns to the **world list when worlds exist** and to the **main
+  menu when the list is empty** (going back to an empty list would bounce straight
+  into our flow again).
+- Clearer diagnostics: `[WTR] CreateWorldScreen interceptado (padre=..., listaVacia=...)`,
+  `[WTR] flujo propio: ...` and `[WTR] CreateWorldScreen ignorado (flujo ajeno: padre=...)`.
+
+## [1.0.5] - 2026-09-18
+### Fixed
+- Template icon rendering in the selector: the full icon region is now scaled
+  into the 32x32 slot instead of showing only its top-left quarter.
+- `icon.png` is resolved from the template's real root (zips that wrap the world
+  in a folder are handled) and the world's icon is resized to the 64x64 vanilla
+  requires, so the world list shows it and never regenerates its own.
+- No more orphaned worlds after a failed creation: worlds are built in a
+  `.<name>.creating` staging folder and published only on success.
+### Added
+- Game mode selection before creating the world (Survival default, Creative,
+  Adventure, Spectator, Hardcore) written into `level.dat`, plus the
+  `defaultGameMode` config option.
+- Template sorting (`A-Z` default, `Z-A`, `NEWEST`, `OLDEST`, `ORIGINAL`) with a
+  live "Orden" button in the selector and the `templateSorting` config option.
+- Error screen with the specific reason and Retry / World list / Main menu actions.
+
 ## [1.0.4] - 2026-09-18
 ### Fixed
 - **Crash** (`Icon already closed`) when creating a world while another world

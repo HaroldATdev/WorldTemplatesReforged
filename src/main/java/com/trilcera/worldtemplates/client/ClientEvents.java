@@ -54,8 +54,43 @@ public class ClientEvents {
      */
     public static void returnToWorldList() {
         Minecraft mc = Minecraft.getInstance();
+        // Empty world list: vanilla replaces the list with its own
+        // CreateWorldScreen (WorldSelectionList.loadLevels() ->
+        // CreateWorldScreen.openFresh(minecraft, null)), which we intercept and
+        // turn into our own flow - so returning to the list would bounce right
+        // back. Go to the main menu instead. With worlds present we DO return
+        // to the list, as requested.
+        if (isWorldListEmpty() && !Config.INSTANCE.allowVanillaWorldCreation.get()) {
+            mc.setScreen(new TitleScreen());
+            return;
+        }
         mc.setScreen(new SelectWorldScreen(new TitleScreen()));
         suppressCreateClicks(1200);
+    }
+
+    /**
+     * True when saves/ holds no usable world at all (no folder with a level.dat).
+     * That is exactly the condition under which vanilla's world list opens the
+     * vanilla CreateWorldScreen by itself, so our Opening handler has to treat
+     * it as a user-facing open instead of ignoring it.
+     */
+    public static boolean isWorldListEmpty() {
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc == null || mc.gameDirectory == null) {
+                return false;
+            }
+            java.nio.file.Path saves = mc.gameDirectory.toPath().resolve("saves");
+            if (!java.nio.file.Files.isDirectory(saves)) {
+                return true;
+            }
+            try (java.util.stream.Stream<java.nio.file.Path> stream = java.nio.file.Files.list(saves)) {
+                return stream.noneMatch(p -> java.nio.file.Files.isRegularFile(p.resolve("level.dat")));
+            }
+        } catch (Exception e) {
+            // Be conservative: assume the player DOES have worlds.
+            return false;
+        }
     }
 
     /** Back to the parent: instant for our own screens, fresh world list otherwise. */
@@ -126,29 +161,81 @@ public class ClientEvents {
     public static void onScreenOpening(ScreenEvent.Opening event) {
         ensureTemplateInstalled();
 
-        // LonKraft parity: redirect CreateWorldScreen when vanilla is disabled.
-        // ONLY for user-facing opens: vanilla ALSO opens CreateWorldScreen
-        // internally (padre=GenericDirtMessageScreen) while the world list
-        // processes existing worlds - intercepting that hijacked the flow and
-        // kept re-opening the template selector even with chooseTemplate=NO.
-        if (event.getScreen() instanceof CreateWorldScreen
-                && !Config.INSTANCE.allowVanillaWorldCreation.get()
-                && !(event.getCurrentScreen() instanceof TrilceraCreateWorldScreen)
-                && !(event.getCurrentScreen() instanceof WorldTemplateScreen)) {
-            Screen current = event.getCurrentScreen();
-            boolean userFacing = current instanceof SelectWorldScreen
-                    || current instanceof WorldTemplateScreen
-                    || current instanceof TrilceraCreateWorldScreen
-                    || current instanceof TrilceraErrorScreen;
-            if (!userFacing) {
-                LOGGER.info("[WTR] CreateWorldScreen interno ignorado (padre={})",
-                        current != null ? current.getClass().getSimpleName() : "null");
-                return;
-            }
-            LOGGER.info("[WTR] CreateWorldScreen interceptado -> flujo propio (padre={})",
-                    current.getClass().getSimpleName());
-            event.setNewScreen(new WorldTemplateScreen(current));
+        if (!(event.getScreen() instanceof CreateWorldScreen)) {
+            return;
         }
+        if (Config.INSTANCE.allowVanillaWorldCreation.get()) {
+            return; // the pack wants the vanilla screen: hands off
+        }
+        Screen current = event.getCurrentScreen();
+        if (current instanceof WorldTemplateScreen
+                || current instanceof TrilceraCreateWorldScreen
+                || current instanceof TrilceraErrorScreen) {
+            return; // already inside our own flow
+        }
+
+        // Two vanilla paths lead here:
+        //  1) the player pressed a still-visible vanilla "Create New World"
+        //     button -> current screen is the SelectWorldScreen;
+        //  2) saves/ has NO worlds, so WorldSelectionList.loadLevels() calls
+        //     CreateWorldScreen.openFresh(minecraft, null) on its own (the
+        //     current screen is the GenericDirtMessageScreen it shows first).
+        //     This is the case that used to drop the player on the vanilla
+        //     screen and made chooseTemplate=NO look broken.
+        // Everything else (Edit / Re-Create / other mods) is left untouched.
+        boolean fromWorldList = current instanceof SelectWorldScreen;
+        boolean emptyListAutoOpen = isWorldListEmpty();
+        if (!fromWorldList && !emptyListAutoOpen) {
+            LOGGER.info("[WTR] CreateWorldScreen ignorado (flujo ajeno: padre={})", typeName(current));
+            return;
+        }
+
+        LOGGER.info("[WTR] CreateWorldScreen interceptado (padre={}, listaVacia={}) -> flujo propio",
+                typeName(current), emptyListAutoOpen);
+        // A null parent means "we came from an empty world list": our screens
+        // then fall back to the main menu instead of bouncing on the list.
+        event.setNewScreen(ownFlowScreen(emptyListAutoOpen ? null : current));
+    }
+
+    private static String typeName(Screen screen) {
+        return screen == null ? "null" : screen.getClass().getSimpleName();
+    }
+
+    /**
+     * Single entry point of our own flow, shared by the world-list button and by
+     * intercepted CreateWorldScreen opens. It honours chooseTemplate, so "NO"
+     * never opens the selector: it goes straight to the create screen with the
+     * first template after the configured sorting.
+     */
+    private static Screen ownFlowScreen(Screen parent) {
+        if (Config.INSTANCE.chooseTemplate.get()) {
+            LOGGER.info("[WTR] flujo propio: abriendo selector de plantillas");
+            return new WorldTemplateScreen(parent);
+        }
+        WorldTemplate first = firstTemplateOrDefault();
+        String preflightError = preflightTemplate();
+        if (preflightError != null) {
+            LOGGER.warn("[WTR] flujo propio: plantilla no valida - {}", preflightError);
+            return new TrilceraErrorScreen(parent, preflightError);
+        }
+        LOGGER.info("[WTR] flujo propio: creando directamente con '{}'", first.folderName());
+        return new TrilceraCreateWorldScreen(first, parent);
+    }
+
+    /**
+     * First template AFTER the configured sorting; when none is registered the
+     * embedded trilcera-template is built on the fly (always the fallback).
+     */
+    private static WorldTemplate firstTemplateOrDefault() {
+        List<WorldTemplate> sorted = TemplateSorting.sort(WorldTemplateManager.getTemplates());
+        if (!sorted.isEmpty()) {
+            return sorted.get(0);
+        }
+        String dir = DefaultTemplateProvider.EMBEDDED_TEMPLATE_DIR;
+        return new WorldTemplate(
+                Component.literal(DefaultTemplateProvider.displayName()),
+                new ResourceLocation(DefaultTemplateProvider.iconPath()),
+                dir, dir);
     }
 
     /**
@@ -173,34 +260,12 @@ public class ClientEvents {
         boolean choose = Config.INSTANCE.chooseTemplate.get();
         String sort = TemplateSorting.current();
 
-        if (choose) {
-            LOGGER.info("[WTR] Boton: escogerPlantilla=SI, orden={}, abriendo selector", sort);
-            mc.setScreen(new WorldTemplateScreen(parent));
-            return; // X1
-        }
-
-        List<WorldTemplate> sorted = TemplateSorting.sort(WorldTemplateManager.getTemplates());
-        WorldTemplate first = sorted.isEmpty() ? null : sorted.get(0);
-        if (first == null) {
-            // Build the embedded template on the fly: it is always the fallback.
-            String dir = DefaultTemplateProvider.EMBEDDED_TEMPLATE_DIR;
-            first = new WorldTemplate(
-                    Component.literal(DefaultTemplateProvider.displayName()),
-                    new ResourceLocation(DefaultTemplateProvider.iconPath()),
-                    dir, dir);
-            sorted = List.of(first);
-        }
-
-        LOGGER.info("[WTR] Boton: escogerPlantilla=NO, orden={}, plantillas={}, usando='{}'",
-                sort, sorted.size(), first.folderName());
-
-        // Pre-flight: validate the template BEFORE showing a broken create screen.
-        String preflightError = preflightTemplate();
-        if (preflightError != null) {
-            mc.setScreen(new TrilceraErrorScreen(parent, preflightError));
-            return;
-        }
-        mc.setScreen(new TrilceraCreateWorldScreen(first, parent));
+        LOGGER.info("[WTR] Boton: escogerPlantilla={}, orden={}, listaVacia={}",
+                choose ? "SI" : "NO", sort, isWorldListEmpty());
+        // One single entry point (ownFlowScreen), shared with the intercepted
+        // CreateWorldScreen opens: it honours chooseTemplate and reports template
+        // problems through the error screen instead of opening a broken screen.
+        mc.setScreen(ownFlowScreen(parent));
     }
 
     /** Returns an error message if the template is not usable, else null. */

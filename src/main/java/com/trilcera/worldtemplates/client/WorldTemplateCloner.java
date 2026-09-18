@@ -205,12 +205,17 @@ public final class WorldTemplateCloner {
     }
 
     /**
-     * Removes leftover broken worlds created by OUR mod from failed attempts:
-     * folders starting with the world's base name that lack our GENERATED_MARKER.
-     * Never touches normal worlds (they have no reason to start with the base name,
-     * and completed worlds always carry the marker).
+     * Removes ONLY our own interrupted staging folders (".<base name>*.creating").
      *
-     * @return number of folders removed
+     * Safety: the previous implementation also deleted finished-looking folders
+     * named "<base>" or "<base> ..." that lacked our marker. That could destroy a
+     * player's own world when it happens to share the configured base name (a
+     * world copied from a server, for instance, has no marker). Dot-folders are
+     * never worlds, so restricting the scan to them can not touch a real save.
+     * createFreshWorld() already removes its own staging folder on failure; this
+     * is only a belt-and-braces sweep for folders left by a hard crash.
+     *
+     * @return number of staging folders removed
      */
     public static int cleanupBrokenWorlds(Path gameDir, String baseName) {
         if (baseName == null || baseName.isBlank()) {
@@ -221,21 +226,16 @@ public final class WorldTemplateCloner {
             return 0;
         }
         int removed = 0;
-        String base = baseName;
         try (java.util.stream.Stream<Path> stream = java.nio.file.Files.list(savesDir)) {
             for (Path child : (Iterable<Path>) stream::iterator) {
                 String name = child.getFileName().toString();
-                boolean ours = name.equals(base) || name.startsWith(base + " ")
-                        || name.startsWith("." + base);
-                if (!ours || !java.nio.file.Files.isDirectory(child)) {
+                boolean staging = name.startsWith("." + baseName) && name.endsWith(".creating");
+                if (!staging || !java.nio.file.Files.isDirectory(child)) {
                     continue;
-                }
-                if (java.nio.file.Files.isRegularFile(child.resolve(GENERATED_MARKER))) {
-                    continue; // completed world, keep it
                 }
                 try {
                     deleteRecursively(child);
-                    LOGGER.info("[Trilcera Templates] Removed broken leftover world '{}'", name);
+                    LOGGER.info("[Trilcera Templates] Removed leftover staging folder '{}'", name);
                     removed++;
                 } catch (IOException e) {
                     LOGGER.warn("[Trilcera Templates] Could not remove '{}': {}", name, e.getMessage());
